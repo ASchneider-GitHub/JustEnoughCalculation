@@ -1,6 +1,5 @@
 package me.towdium.jecalculation.gui;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.architectury.event.CompoundEventResult;
 import dev.architectury.event.EventResult;
@@ -24,14 +23,13 @@ import net.minecraft.Util;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
-import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.network.chat.TextComponent;
-import net.minecraft.network.chat.TranslatableComponent;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Player;
@@ -77,7 +75,7 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
     protected static JecaGui last;
     public static JecaGui override;
     protected JecaGui parent;
-    protected PoseStack matrix;
+    protected GuiGraphics graphics;
     protected final Utilities.OffsetStack itemOffset = new Utilities.OffsetStack();
     protected final boolean isWidget;
     protected boolean preventRecipeScreen = false;
@@ -90,7 +88,7 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
 
     public JecaGui(@Nullable JecaGui parent, boolean acceptsTransfer, IGui root, boolean isWidget) {
         super(acceptsTransfer ? new JecaGui.ContainerTransfer() : new JecaGui.ContainerNonTransfer(),
-                getPlayer().getInventory(), new TextComponent(""));
+                getPlayer().getInventory(), Component.literal(""));
         this.parent = parent;
         this.root = root;
         this.isWidget = isWidget;
@@ -110,27 +108,25 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
         ClientRawInputEvent.KEY_PRESSED.register(JecaGui::onKeyPressed);
     }
 
-    @Override
-    public void init(Minecraft minecraft, int width, int height) {
-        if (!isWidget) {
-            super.init(minecraft, width, height);
-            minecraft.keyboardHandler.setSendRepeatsToGui(true);
-            return;
-        }
+    /**
+     * Manually drives this screen's lifecycle for the "widget" overlay case, where this
+     * JecaGui is never installed as {@code Minecraft.screen} and so never receives the
+     * real {@code Screen.init(Minecraft, int, int)} call (which is final in vanilla and
+     * cannot be overridden).
+     */
+    public void initWidget(Minecraft minecraft, int width, int height) {
+        if (!isWidget) throw new IllegalStateException("initWidget() called on a non-widget JecaGui");
         this.minecraft = minecraft;
-        this.itemRenderer = minecraft.getItemRenderer();
         this.font = minecraft.font;
         this.width = width;
         this.height = height;
         this.init();
-        minecraft.keyboardHandler.setSendRepeatsToGui(true);
     }
 
     @Override
     public void removed() {
         super.removed();
         Objects.requireNonNull(this.minecraft);
-        this.minecraft.keyboardHandler.setSendRepeatsToGui(false);
     }
 
     public static int getMouseX() {
@@ -219,14 +215,14 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
     }
 
     public static EventResult onMouseScroll(Minecraft client, Screen screen, double mouseX, double mouseY,
-            double amount) {
+            double amountX, double amountY) {
         if (!(screen instanceof JecaGui))
             return pass();
         JecaGui gui = getCurrent();
         int xMouse = getMouseX();
         int yMouse = getMouseY();
-        if (amount != 0)
-            gui.root.onMouseScroll(gui, xMouse, yMouse, (int) amount);
+        if (amountY != 0)
+            gui.root.onMouseScroll(gui, xMouse, yMouse, (int) amountY);
         return pass();
     }
 
@@ -307,11 +303,15 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
     }
 
     public PoseStack getMatrix() {
-        return matrix;
+        return graphics.pose();
     }
 
-    public void setMatrix(PoseStack matrix) {
-        this.matrix = matrix;
+    public GuiGraphics getGraphics() {
+        return graphics;
+    }
+
+    public void setGraphics(GuiGraphics graphics) {
+        this.graphics = graphics;
     }
 
     public Utilities.OffsetStack getItemOffsetStack() {
@@ -356,7 +356,7 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
         return pass();
     }
 
-    public static EventResult onTooltip(PoseStack poseStack, List<? extends ClientTooltipComponent> components, int x,
+    public static EventResult onTooltip(GuiGraphics graphics, List<? extends ClientTooltipComponent> components, int x,
             int y) {
         if (Minecraft.getInstance().screen instanceof JecaGui) {
             JecaGui gui = getCurrent();
@@ -387,7 +387,7 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
         boolean ret = is == null && Controller.isServerActive();
         String s = "jecalculation.chat.server_mode";
         if (ret)
-            getPlayer().displayClientMessage(new TranslatableComponent(s), false);
+            getPlayer().displayClientMessage(Component.translatable(s), false);
         else
             JecaGui.displayGui(new GuiMath(is, slot));
         return ret ? 1 : 0;
@@ -398,7 +398,7 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
         boolean ret = is == null && Controller.isServerActive();
         String s = "jecalculation.chat.server_mode";
         if (ret)
-            getPlayer().displayClientMessage(new TranslatableComponent(s), false);
+            getPlayer().displayClientMessage(Component.translatable(s), false);
         else
             JecaGui.displayGui(new GuiCraft(is, slot));
         return ret ? 1 : 0;
@@ -410,40 +410,35 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
     }
 
     @Override
-    protected void renderBg(PoseStack matrixStack, float partialTicks, int x, int y) {
-        renderBackground(matrixStack);
+    protected void renderBg(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY) {
+        renderTransparentBackground(graphics);
     }
 
     @Override
-    public void render(PoseStack matrixStack, int mouseX, int mouseY, float partialTicks) {
-        super.render(matrixStack, mouseX, mouseY, partialTicks);
-        matrix = matrixStack;
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        super.render(graphics, mouseX, mouseY, partialTicks);
+        this.graphics = graphics;
         mouseX -= leftPos;
         mouseY -= topPos;
-        matrixStack.pushPose();
-        matrixStack.translate(leftPos, topPos, 0);
+        graphics.pose().pushPose();
+        graphics.pose().translate(leftPos, topPos, 0);
         root.onDraw(this, mouseX, mouseY);
-        matrixStack.popPose();
-        matrixStack.pushPose();
-        matrixStack.translate(0, 0, 80);
+        graphics.pose().popPose();
+        graphics.pose().pushPose();
+        graphics.pose().translate(0, 0, 80);
         hand.drawLabel(this, mouseX + leftPos, mouseY + topPos, true, true);
-        matrixStack.popPose();
+        graphics.pose().popPose();
         List<String> tooltip = new ArrayList<>();
         root.onTooltip(this, mouseX, mouseY, tooltip);
-        drawHoveringText(matrixStack, tooltip, mouseX + leftPos, mouseY + topPos, font);
+        drawHoveringText(graphics, tooltip, mouseX + leftPos, mouseY + topPos, font);
     }
 
     // modified from vanilla
-    public void drawHoveringText(PoseStack matrixStack, List<String> textLines, int x, int y,
+    public void drawHoveringText(GuiGraphics graphics, List<String> textLines, int x, int y,
             net.minecraft.client.gui.Font font) {
         if (!textLines.isEmpty()) {
-            RenderSystem.setShader(GameRenderer::getPositionColorShader);
-            RenderSystem.enableDepthTest();
-            RenderSystem.disableTexture();
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
-            matrixStack.pushPose();
-            matrixStack.translate(0, 0, 400);
+            graphics.pose().pushPose();
+            graphics.pose().translate(0, 0, 400);
             int i = 0;
             int separators = 0;
             for (String s : textLines) {
@@ -464,27 +459,25 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
                 l1 -= 28 + i;
             if (i2 + k + 6 > this.height)
                 i2 = this.height - k - 6;
-            fillGradient(matrixStack, l1 - 3, i2 - 4, l1 + i + 3, i2 - 3, -267386864, -267386864);
-            fillGradient(matrixStack, l1 - 3, i2 + k + 3, l1 + i + 3, i2 + k + 4, -267386864, -267386864);
-            fillGradient(matrixStack, l1 - 3, i2 - 3, l1 + i + 3, i2 + k + 3, -267386864, -267386864);
-            fillGradient(matrixStack, l1 - 4, i2 - 3, l1 - 3, i2 + k + 3, -267386864, -267386864);
-            fillGradient(matrixStack, l1 + i + 3, i2 - 3, l1 + i + 4, i2 + k + 3, -267386864, -267386864);
-            fillGradient(matrixStack, l1 - 3, i2 - 3 + 1, l1 - 3 + 1, i2 + k + 3 - 1, 1347420415, 1344798847);
-            fillGradient(matrixStack, l1 + i + 2, i2 - 3 + 1, l1 + i + 3, i2 + k + 3 - 1, 1347420415, 1344798847);
-            fillGradient(matrixStack, l1 - 3, i2 - 3, l1 + i + 3, i2 - 3 + 1, 1347420415, 1347420415);
-            fillGradient(matrixStack, l1 - 3, i2 + k + 2, l1 + i + 3, i2 + k + 3, 1344798847, 1344798847);
+            graphics.fillGradient(l1 - 3, i2 - 4, l1 + i + 3, i2 - 3, -267386864, -267386864);
+            graphics.fillGradient(l1 - 3, i2 + k + 3, l1 + i + 3, i2 + k + 4, -267386864, -267386864);
+            graphics.fillGradient(l1 - 3, i2 - 3, l1 + i + 3, i2 + k + 3, -267386864, -267386864);
+            graphics.fillGradient(l1 - 4, i2 - 3, l1 - 3, i2 + k + 3, -267386864, -267386864);
+            graphics.fillGradient(l1 + i + 3, i2 - 3, l1 + i + 4, i2 + k + 3, -267386864, -267386864);
+            graphics.fillGradient(l1 - 3, i2 - 3 + 1, l1 - 3 + 1, i2 + k + 3 - 1, 1347420415, 1344798847);
+            graphics.fillGradient(l1 + i + 2, i2 - 3 + 1, l1 + i + 3, i2 + k + 3 - 1, 1347420415, 1344798847);
+            graphics.fillGradient(l1 - 3, i2 - 3, l1 + i + 3, i2 - 3 + 1, 1347420415, 1347420415);
+            graphics.fillGradient(l1 - 3, i2 + k + 2, l1 + i + 3, i2 + k + 3, 1344798847, 1344798847);
             for (String s1 : textLines) {
                 // noinspection StringEquality
                 if (s1 == SEPARATOR)
                     i2 += 2;
                 else {
-                    font.drawShadow(matrixStack, s1, (float) l1, (float) i2, -1);
+                    graphics.drawString(font, s1, l1, i2, -1);
                     i2 += 10;
                 }
             }
-            matrixStack.popPose();
-            RenderSystem.disableBlend();
-            RenderSystem.enableTexture();
+            graphics.pose().popPose();
         }
     }
 
@@ -494,8 +487,7 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
 
     public void drawResource(Resource r, int xPos, int yPos, int color) {
         setColor(color);
-        RenderSystem.setShaderTexture(0, r.getResourceLocation());
-        blit(matrix, xPos, yPos, r.getXPos(), r.getYPos(), r.getXSize(), r.getYSize());
+        graphics.blit(r.getResourceLocation(), xPos, yPos, r.getXPos(), r.getYPos(), r.getXSize(), r.getYSize());
     }
 
     public void drawResourceContinuous(Resource r, int xPos, int yPos, int xSize, int ySize, int border) {
@@ -505,8 +497,8 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
     public void drawResourceContinuous(
             Resource r, int xPos, int yPos, int xSize, int ySize,
             int borderTop, int borderBottom, int borderLeft, int borderRight) {
-        GuiUtils.drawContinuousTexturedBox(matrix, r.getResourceLocation(), xPos, yPos, r.getXPos(), r.getYPos(),
-                xSize, ySize, r.getXSize(), r.getYSize(), borderTop, borderBottom, borderLeft, borderRight, 0);
+        GuiUtils.drawContinuousTexturedBox(graphics, r.getResourceLocation(), xPos, yPos, r.getXPos(), r.getYPos(),
+                xSize, ySize, r.getXSize(), r.getYSize(), borderTop, borderBottom, borderLeft, borderRight);
     }
 
     private void setColor(int color) {
@@ -514,7 +506,7 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
         float green = (color >> 8 & 0xFF) / 255.0F;
         float blue = (color & 0xFF) / 255.0F;
         float alpha = (~(color >> 24) & 0xFF) / 255.0F;
-        RenderSystem.setShaderColor(red, green, blue, alpha);
+        graphics.setColor(red, green, blue, alpha);
     }
 
     public void drawFluid(Fluid f, int xPos, int yPos, int xSize, int ySize) {
@@ -523,13 +515,12 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
             fluidTexture = FluidStackHooks.getStillTexture(Fluids.WATER);
         if (fluidTexture == null)
             return;
-        RenderSystem.setShaderTexture(0, InventoryMenu.BLOCK_ATLAS);
         setColor(FluidStackHooks.getColor(f) & 0x00FFFFFF);
-        blit(matrix, xPos, yPos, 0, xSize, ySize, fluidTexture);
+        graphics.blit(xPos, yPos, 0, xSize, ySize, fluidTexture);
     }
 
     public void drawRectangle(int xPos, int yPos, int xSize, int ySize, int color) {
-        fill(matrix, xPos, yPos, xPos + xSize, yPos + ySize, color);
+        graphics.fill(xPos, yPos, xPos + xSize, yPos + ySize, color);
     }
 
     public int getStringWidth(String s) {
@@ -544,10 +535,7 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
         drawText(xPos, yPos, f, () -> {
             int y = 0;
             for (String i : ss) {
-                if (f.shadow)
-                    font.drawShadow(matrix, i, 0, y, f.color);
-                else
-                    font.draw(matrix, i, 0, y, f.color);
+                graphics.drawString(font, i, 0, y, f.color, f.shadow);
                 y += font.lineHeight + 1;
             }
         });
@@ -564,10 +552,7 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
             int ellipsisWidth = f.getTextWidth("...");
             if (strWidth > width && strWidth > ellipsisWidth)
                 str = f.trimToWidth(str, width - ellipsisWidth).trim() + "...";
-            if (f.shadow)
-                font.drawShadow(matrix, str, 0, 0, f.color);
-            else
-                font.draw(matrix, str, 0, 0, f.color);
+            graphics.drawString(font, str, 0, 0, f.color, f.shadow);
         });
     }
 
@@ -586,13 +571,8 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
             yPos -= 8;
         }
 
-        int x = hand ? xPos : leftPos + xPos;
-        int y = hand ? yPos : topPos + yPos;
-
-        RenderSystem.enableDepthTest();
-        itemRenderer.renderAndDecorateItem(is, x + itemOffset.x(), y + itemOffset.y());
-        itemRenderer.renderGuiItemDecorations(font, is, leftPos + xPos, topPos + yPos, null);
-        RenderSystem.disableDepthTest();
+        graphics.renderItem(is, xPos + itemOffset.x(), yPos + itemOffset.y());
+        graphics.renderItemDecorations(font, is, xPos, yPos);
     }
 
     @Override
@@ -675,6 +655,11 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
         @Override
         public boolean stillValid(Player playerIn) {
             return true;
+        }
+
+        @Override
+        public ItemStack quickMoveStack(Player playerIn, int index) {
+            return ItemStack.EMPTY;
         }
     }
 

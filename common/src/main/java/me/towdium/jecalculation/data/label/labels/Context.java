@@ -6,6 +6,7 @@ import me.towdium.jecalculation.utils.wrappers.Pair;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderSet;
 import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -64,12 +65,12 @@ public interface Context<T> {
 
         @Override
         public Registry<Item> registry() {
-            return Registry.ITEM;
+            return BuiltInRegistries.ITEM;
         }
 
         @Override
         public Stream<Pair<TagKey<Item>, Stream<Item>>> tags() {
-            return Utilities.getTags(Registry.ITEM);
+            return Utilities.getTags(BuiltInRegistries.ITEM);
         }
 
 
@@ -92,12 +93,12 @@ public interface Context<T> {
 
         @Override
         public Registry<Fluid> registry() {
-            return Registry.FLUID;
+            return BuiltInRegistries.FLUID;
         }
 
         @Override
         public Stream<Pair<TagKey<Fluid>, Stream<Fluid>>> tags() {
-            return Utilities.getTags(Registry.FLUID);
+            return Utilities.getTags(BuiltInRegistries.FLUID);
         }
 
 

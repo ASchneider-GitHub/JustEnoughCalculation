@@ -9,7 +9,7 @@ import me.towdium.jecalculation.gui.JecaGui;
 import me.towdium.jecalculation.gui.Resource;
 import me.towdium.jecalculation.utils.Utilities;
 import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.material.Fluid;
@@ -44,7 +44,7 @@ public class LFluidStack extends LStack<Fluid> {
     }
 
     public LFluidStack(FluidStack fs) {
-        this(fs.getAmount(), fs.getFluid(), fs.getTag());
+        this(fs.getAmount(), fs.getFluid(), null);
     }
 
     public LFluidStack(long amount, Fluid fluid) {
@@ -59,7 +59,7 @@ public class LFluidStack extends LStack<Fluid> {
     public LFluidStack(CompoundTag nbt) {
         super(nbt);
         String id = nbt.getString(KEY_FLUID);
-        Optional<Fluid> f = Registry.FLUID.getOptional(new ResourceLocation(id));
+        Optional<Fluid> f = BuiltInRegistries.FLUID.getOptional(ResourceLocation.parse(id));
         if (f.isEmpty()) throw new SerializationException("Fluid " + id + " cannot be resolved, ignoring");
         init(f.get(), nbt.contains(KEY_NBT) ? nbt.getCompound(KEY_NBT) : null);
     }
@@ -77,7 +77,7 @@ public class LFluidStack extends LStack<Fluid> {
     private void init(Fluid fluid, @Nullable CompoundTag nbt) {
         this.fluid = fluid;
         this.nbt = nbt;
-        temp = FluidStack.create(fluid, 1, nbt);
+        temp = FluidStack.create(fluid, 1);
     }
 
     public LFluidStack(LFluidStack lfs) {
@@ -100,7 +100,7 @@ public class LFluidStack extends LStack<Fluid> {
     public static String format(long amount) {
         float bucket = FluidStackHooks.bucketAmount();
         return amount >= bucket ? Utilities.cutNumber(amount / bucket, 4) + "B"
-                : amount + (Platform.isForge() ? "mB" : "U");
+                : amount + (Platform.isForgeLike() ? "mB" : "U");
     }
 
     @Override
@@ -129,7 +129,7 @@ public class LFluidStack extends LStack<Fluid> {
     public CompoundTag toNbt() {
         CompoundTag ret = super.toNbt();
         //noinspection ConstantConditions
-        ret.putString(KEY_FLUID, Registry.FLUID.getKey(fluid).toString());
+        ret.putString(KEY_FLUID, BuiltInRegistries.FLUID.getKey(fluid).toString());
         if (nbt != null) ret.put(KEY_NBT, nbt);
         return ret;
     }
@@ -147,7 +147,7 @@ public class LFluidStack extends LStack<Fluid> {
 
     @Override
     public int hashCode() {
-        return super.hashCode() ^ Registry.FLUID.getKey(fluid).hashCode() ^ (nbt == null ? 0 : nbt.hashCode());
+        return super.hashCode() ^ BuiltInRegistries.FLUID.getKey(fluid).hashCode() ^ (nbt == null ? 0 : nbt.hashCode());
     }
 
     private static final String TIC_CLASS = "slimeknights.tconstruct.plugin.jei.casting.CastingRecipeCategory";

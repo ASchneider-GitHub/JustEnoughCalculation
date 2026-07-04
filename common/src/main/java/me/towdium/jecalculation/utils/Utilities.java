@@ -19,6 +19,9 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -29,6 +32,7 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.material.Fluid;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.text.WordUtils;
@@ -142,14 +146,14 @@ public class Utilities {
         throw new AssertionError();
     }
 
-    public static TagKey<Item> IRON_INGOTS = tag(Registry.ITEM_REGISTRY, Platform.isForge() ? "ingots/iron" : "iron_ingots");
+    public static TagKey<Item> IRON_INGOTS = tag(Registries.ITEM, Platform.isMinecraftForge() ? "ingots/iron" : "iron_ingots");
 
     public static <T> TagKey<T> tag(ResourceKey<? extends Registry<T>> key, String tag) {
-        return TagKey.create(key, new ResourceLocation(getTagNamespace(), tag));
+        return TagKey.create(key, ResourceLocation.fromNamespaceAndPath(getTagNamespace(), tag));
     }
 
     public static String getTagNamespace() {
-        return Platform.isForge() ? "forge" : "c";
+        return Platform.isMinecraftForge() ? "forge" : "c";
     }
 
     // MOD NAME
@@ -166,12 +170,12 @@ public class Utilities {
     }
 
     public static String getModName(Item item) {
-        return getModNameInternal(Registry.ITEM, item)
+        return getModNameInternal(BuiltInRegistries.ITEM, item)
                 .orElse("Unknown");
     }
 
     public static String getModName(Fluid fluid) {
-        return getModNameInternal(Registry.FLUID, fluid)
+        return getModNameInternal(BuiltInRegistries.FLUID, fluid)
                 .orElseGet(() -> getModNameFromTexture(fluid));
     }
 
@@ -181,7 +185,7 @@ public class Utilities {
         if (name.equals("lava") || name.equals("water")) return "Minecraft";
         TextureAtlasSprite texture = FluidStackHooks.getStillTexture(fluid);
         if (texture == null) return "Unknown";
-        else return getModName(texture.getName().getNamespace());
+        else return getModName(texture.atlasLocation().getNamespace());
     }
 
     public static File config() {
@@ -189,7 +193,19 @@ public class Utilities {
     }
 
     public static CompoundTag getTag(ItemStack is) {
-        return is.getOrCreateTagElement(JustEnoughCalculation.MODID);
+        CustomData data = is.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY);
+        return data.copyTag().getCompound(JustEnoughCalculation.MODID);
+    }
+
+    public static void setTag(ItemStack is, String key, CompoundTag value) {
+        // CustomData.of() copies the tag it's given, so mutating a CompoundTag
+        // returned from a prior getTag()/is.set() pair never reaches the stack.
+        // CustomData.update() copies once and applies the mutation atomically.
+        CustomData.update(DataComponents.CUSTOM_DATA, is, root -> {
+            CompoundTag inner = root.getCompound(JustEnoughCalculation.MODID);
+            inner.put(key, value);
+            root.put(JustEnoughCalculation.MODID, inner);
+        });
     }
 
     public static LocalPlayer getPlayer() {
@@ -351,7 +367,7 @@ public class Utilities {
         }
 
         public static Locale getLocale() {
-            String code = Minecraft.getInstance().getLanguageManager().getSelected().getCode();
+            String code = Minecraft.getInstance().getLanguageManager().getSelected();
             String[] splitLangCode = code.split("_", 2);
             return splitLangCode.length == 1 ? new Locale(code) : new Locale(splitLangCode[0], splitLangCode[1]);
         }

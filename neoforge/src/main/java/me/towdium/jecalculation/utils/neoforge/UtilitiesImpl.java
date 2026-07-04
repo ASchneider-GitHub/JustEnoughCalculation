@@ -1,11 +1,10 @@
-package me.towdium.jecalculation.utils.fabric;
+package me.towdium.jecalculation.utils.neoforge;
 
 import dev.architectury.fluid.FluidStack;
+import dev.architectury.hooks.fluid.forge.FluidStackHooksForge;
 import me.towdium.jecalculation.data.structure.RecordPlayer;
-import me.towdium.jecalculation.fabric_like.JecaConfig;
-import me.towdium.jecalculation.fabric_like.JecaPlayerRecordAccessor;
-import mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient;
-import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
+import me.towdium.jecalculation.neoforge.JecaAttachments;
+import me.towdium.jecalculation.neoforge.JecaConfig;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
@@ -21,11 +20,11 @@ public class UtilitiesImpl {
     }
 
     public static RecordPlayer getRecord(Player player) {
-        return player instanceof JecaPlayerRecordAccessor accessor ? accessor.Jeca_getRecord() : null;
+        return JecaAttachments.getRecord(player);
     }
 
     public static boolean isClientMode() {
-        return JecaConfig.clientMode;
+        return JecaConfig.clientMode.get();
     }
 
     public static boolean areCapsCompatible(ItemStack itemStack, ItemStack itemStack1) {
@@ -33,10 +32,8 @@ public class UtilitiesImpl {
     }
 
     public static FluidStack createFluidStackFromJeiIngredient(Object object) {
-        if (object instanceof IJeiFluidIngredient fluid) {
-            FluidVariant variant = fluid.getFluidVariant();
-            return FluidStack.create(variant.getFluid(), fluid.getAmount(), variant.getComponents());
-        }
+        if (object instanceof net.neoforged.neoforge.fluids.FluidStack fluidStack)
+            return FluidStackHooksForge.fromForge(fluidStack);
         return null;
     }
 }

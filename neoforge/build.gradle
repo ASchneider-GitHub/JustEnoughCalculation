@@ -4,7 +4,7 @@ plugins {
 
 architectury {
     platformSetupLoomIde()
-    fabric()
+    neoForge()
 }
 
 loom {
@@ -16,33 +16,32 @@ configurations {
     shadowCommon // Don't use shadow from the shadow plugin because we don't want IDEA to index this.
     compileClasspath.extendsFrom common
     runtimeClasspath.extendsFrom common
-    developmentFabric.extendsFrom common
+    developmentNeoForge.extendsFrom common
 }
 
 dependencies {
-    modImplementation "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
-    modApi "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_api_version}"
+    neoForge "net.neoforged:neoforge:${rootProject.neoforge_version}"
     // Remove the next line if you don't want to depend on the API
-    modApi "dev.architectury:architectury-fabric:${rootProject.architectury_version}"
+    modApi "dev.architectury:architectury-neoforge:${rootProject.architectury_version}"
 
-    modRuntimeOnly "mezz.jei:jei-1.21.1-fabric:${rootProject.jei_version}"
-    modRuntimeOnly "me.shedaniel:RoughlyEnoughItems-fabric:${rootProject.rei_version}"
+    modRuntimeOnly "mezz.jei:jei-1.21.1-neoforge:${rootProject.jei_version}"
+    modImplementation "me.shedaniel:RoughlyEnoughItems-neoforge:${rootProject.rei_version}"
 
     common(project(path: ":common", configuration: "namedElements")) { transitive false }
-    shadowCommon(project(path: ":common", configuration: "transformProductionFabric")) { transitive false }
-    common(project(path: ":fabric-like", configuration: "namedElements")) { transitive false }
-    shadowCommon(project(path: ":fabric-like", configuration: "transformProductionFabric")) { transitive false }
+    shadowCommon(project(path: ":common", configuration: "transformProductionNeoForge")) { transitive false }
 }
 
 processResources {
     inputs.property "version", project.version
 
-    filesMatching("fabric.mod.json") {
+    filesMatching("META-INF/neoforge.mods.toml") {
         expand "version": project.version
     }
 }
 
 shadowJar {
+    exclude "fabric.mod.json"
+    exclude "quilt.mod.json"
     exclude "architectury.common.json"
 
     configurations = [project.configurations.shadowCommon]
@@ -50,7 +49,6 @@ shadowJar {
 }
 
 remapJar {
-    injectAccessWidener = true
     input.set shadowJar.archiveFile
     dependsOn shadowJar
     archiveClassifier.set(null)

@@ -1,6 +1,5 @@
 package me.towdium.jecalculation.events;
 
-import com.mojang.blaze3d.vertex.PoseStack;
 import dev.architectury.event.CompoundEventResult;
 import dev.architectury.event.EventResult;
 import dev.architectury.event.events.client.ClientGuiEvent;
@@ -11,10 +10,13 @@ import me.towdium.jecalculation.utils.wrappers.Trio;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
+import net.minecraft.client.gui.screens.inventory.tooltip.DefaultTooltipPositioner;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.world.entity.player.Inventory;
@@ -62,7 +64,7 @@ public class GuiScreenEventHandler {
 
         overlayHandler = new GuiScreenOverlayHandler(player.getInventory());
         gui = new JecaGui(null, false, overlayHandler, true);
-        gui.init(Minecraft.getInstance(), screen.width, screen.height);
+        gui.initWidget(Minecraft.getInstance(), screen.width, screen.height);
         overlayHandler.setGui(gui);
         return CompoundEventResult.pass();
     }
@@ -72,7 +74,7 @@ public class GuiScreenEventHandler {
                 && !(screen instanceof JecaGui);
     }
 
-    public void onDrawForeground(Screen screen, PoseStack poseStack, int mouseX, int mouseY, float partialTicks) {
+    public void onDrawForeground(Screen screen, GuiGraphics graphics, int mouseX, int mouseY, DeltaTracker delta) {
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
         if (player == null || overlayHandler == null || !isScreenValidForOverlay(screen)) {
@@ -83,31 +85,31 @@ public class GuiScreenEventHandler {
         if (didInventoryChange(inventory)) {
             overlayHandler = new GuiScreenOverlayHandler(inventory);
             gui = new JecaGui(null, false, overlayHandler, true);
-            gui.init(Minecraft.getInstance(), screen.width, screen.height);
+            gui.initWidget(Minecraft.getInstance(), screen.width, screen.height);
             overlayHandler.setGui(gui);
         } else if (screen.width != gui.width || screen.height != gui.height) {
-            gui.init(Minecraft.getInstance(), screen.width, screen.height);
+            gui.initWidget(Minecraft.getInstance(), screen.width, screen.height);
         }
 
-        gui.setMatrix(poseStack);
+        gui.setGraphics(graphics);
         mouseX = gui.getGlobalMouseX();
         mouseY = gui.getGlobalMouseY();
 
-        poseStack.pushPose();
-        poseStack.translate(gui.getGuiLeft(), gui.getGuiTop(), 0);
+        graphics.pose().pushPose();
+        graphics.pose().translate(gui.getGuiLeft(), gui.getGuiTop(), 0);
         overlayHandler.onDraw(gui, mouseX, mouseY);
-        poseStack.popPose();
+        graphics.pose().popPose();
 
         List<String> tooltip = new ArrayList<>();
         overlayHandler.onTooltip(gui, mouseX, mouseY, tooltip);
-        gui.drawHoveringText(poseStack, tooltip, mouseX + gui.getGuiLeft(), mouseY + gui.getGuiTop(), minecraft.font);
+        gui.drawHoveringText(graphics, tooltip, mouseX + gui.getGuiLeft(), mouseY + gui.getGuiTop(), minecraft.font);
         if (cachedTooltipEvent != null) {
-            gui.renderTooltipInternal(poseStack, (List<ClientTooltipComponent>) cachedTooltipEvent.one, cachedTooltipEvent.two, cachedTooltipEvent.three);
+            graphics.renderTooltipInternal(minecraft.font, (List<ClientTooltipComponent>) cachedTooltipEvent.one, cachedTooltipEvent.two, cachedTooltipEvent.three, DefaultTooltipPositioner.INSTANCE);
             cachedTooltipEvent = null;
         }
     }
 
-    public EventResult onTooltip(PoseStack poseStack, List<? extends ClientTooltipComponent> components, int x, int y) {
+    public EventResult onTooltip(GuiGraphics graphics, List<? extends ClientTooltipComponent> components, int x, int y) {
         if (overlayHandler == null || cachedTooltipEvent != null || !overlayHandler.hasAnyWindow())
             return pass();
 
@@ -117,10 +119,10 @@ public class GuiScreenEventHandler {
         return interruptFalse();
     }
 
-    public EventResult onMouseScroll(Minecraft client, Screen screen, double mouseX, double mouseY, double amount) {
+    public EventResult onMouseScroll(Minecraft client, Screen screen, double mouseX, double mouseY, double amountX, double amountY) {
         if (overlayHandler == null || !isScreenValidForOverlay(screen))
             return pass();
-        return amount != 0 && overlayHandler.onMouseScroll(gui, gui.getGlobalMouseX(), gui.getGlobalMouseY(), (int) amount) ? interruptFalse() : pass();
+        return amountY != 0 && overlayHandler.onMouseScroll(gui, gui.getGlobalMouseX(), gui.getGlobalMouseY(), (int) amountY) ? interruptFalse() : pass();
     }
 
     public EventResult onMouseClicked(Minecraft client, Screen screen, double mouseX, double mouseY, int button) {

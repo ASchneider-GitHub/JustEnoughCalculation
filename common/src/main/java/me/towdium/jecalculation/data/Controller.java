@@ -1,5 +1,6 @@
 package me.towdium.jecalculation.data;
 
+import dev.architectury.networking.NetworkManager;
 import dev.architectury.platform.Platform;
 import me.towdium.jecalculation.JustEnoughCalculation;
 import me.towdium.jecalculation.data.label.labels.LPlaceholder;
@@ -13,7 +14,7 @@ import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.TranslatableComponent;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
@@ -28,8 +29,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import static me.towdium.jecalculation.JustEnoughCalculation.network;
 
 /**
  * Author: towdium
@@ -88,7 +87,7 @@ public class Controller {
 
         File f = new File(Platform.getConfigFolder().toFile(), JustEnoughCalculation.MODID + "/data/" + s + ".json");
         Utilities.Json.write(r.apply(getRecipes()), f);
-        player.displayClientMessage(new TranslatableComponent(
+        player.displayClientMessage(Component.translatable(
                 "jecalculation.chat.export", f.getAbsolutePath()), false);
     }
 
@@ -117,37 +116,37 @@ public class Controller {
     public static void setRecipe(String neu, String old, int index, Recipe recipe) {
         getRecipes().set(neu, old, index, recipe);
         setLast(neu);
-        if (isServerActive()) network.sendToServer(new PEdit(neu, old, index, recipe));
+        if (isServerActive()) NetworkManager.sendToServer(new PEdit(neu, old, index, recipe));
     }
 
     public static void renameGroup(String old, String neu) {
         getRecipes().renameGroup(old, neu);
         setLast(neu);
-        if (isServerActive()) network.sendToServer(new PEdit(neu, old, -1, null));
+        if (isServerActive()) NetworkManager.sendToServer(new PEdit(neu, old, -1, null));
     }
 
     public static void addRecipe(String group, Recipe recipe) {
         getRecipes().add(group, recipe);
         setLast(group);
-        if (isServerActive()) network.sendToServer(new PEdit(group, null, -1, recipe));
+        if (isServerActive()) NetworkManager.sendToServer(new PEdit(group, null, -1, recipe));
     }
 
     public static void setRecipe(String group, int index, Recipe recipe) {
         getRecipes().set(group, index, recipe);
         setLast(group);
-        if (isServerActive()) network.sendToServer(new PEdit(group, null, index, recipe));
+        if (isServerActive()) NetworkManager.sendToServer(new PEdit(group, null, index, recipe));
     }
 
     public static void removeRecipe(String group, int index) {
         getRecipes().remove(group, index);
         setLast(group);
-        if (isServerActive()) network.sendToServer(new PEdit(group, null, index, null));
+        if (isServerActive()) NetworkManager.sendToServer(new PEdit(group, null, index, null));
     }
 
     public static void removeGroup(String group) {
         getRecipes().remove(group);
         setLast(group);
-        if (isServerActive()) network.sendToServer(new PEdit(group, null, -1, null));
+        if (isServerActive()) NetworkManager.sendToServer(new PEdit(group, null, -1, null));
     }
 
     public static Recipe getRecipe(String group, int index) {
@@ -185,8 +184,8 @@ public class Controller {
     private static <T extends IRecord> void setR(T t, Consumer<T> c, String s, @Nullable ItemStack is, int slot) {
         if (!isServerActive()) c.accept(t);
         else if (is != null) {
-            Utilities.getTag(is).put(s, t.serialize());
-            network.sendToServer(new PCalculator(is, slot));
+            Utilities.setTag(is, s, t.serialize());
+            NetworkManager.sendToServer(new PCalculator(is, slot));
         }
     }
 
@@ -257,7 +256,7 @@ public class Controller {
     public static class Server {
         public static void onJoin(ServerPlayer player) {
             if (!Utilities.isClientMode())
-                network.sendToPlayer(player, new PRecord(Utilities.getRecord(player)));
+                NetworkManager.sendToPlayer(player, new PRecord(Utilities.getRecord(player)));
         }
     }
 }

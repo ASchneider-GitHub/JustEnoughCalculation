@@ -17,7 +17,7 @@ import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.api.recipe.RecipeIngredientRole;
 import mezz.jei.api.recipe.transfer.IRecipeTransferError;
-import mezz.jei.api.recipe.transfer.IRecipeTransferHandler;
+import mezz.jei.api.recipe.transfer.IUniversalRecipeTransferHandler;
 import mezz.jei.api.registration.IGuiHandlerRegistration;
 import mezz.jei.api.registration.IRecipeTransferRegistration;
 import mezz.jei.api.runtime.IJeiRuntime;
@@ -26,15 +26,17 @@ import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.inventory.MenuType;
 import org.jetbrains.annotations.Nullable;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Optional;
 
 import static me.towdium.jecalculation.compat.ModCompat.merge;
 
@@ -50,6 +52,7 @@ public class JecaJEIPlugin implements IModPlugin {
 
     public static Class<?> FABRIC_FLUID_INGREDIENT_CLASS;
     public static Class<?> FORGE_FLUID_INGREDIENT_CLASS;
+    public static Class<?> NEOFORGE_FLUID_INGREDIENT_CLASS;
 
     public static ILabel getLabelUnderMouse() {
         var ref = new Object() {
@@ -69,7 +72,7 @@ public class JecaJEIPlugin implements IModPlugin {
         Object rep = l.getRepresentation();
         if (rep != null) {
             if(rep instanceof FluidStack fluidStack)
-                rep = runtime.getJeiHelpers().getPlatformFluidHelper().create(fluidStack.getFluid(), fluidStack.getAmount());
+                rep = runtime.getJeiHelpers().getPlatformFluidHelper().create(BuiltInRegistries.FLUID.wrapAsHolder(fluidStack.getFluid()), fluidStack.getAmount());
             runtime.getRecipesGui().show(runtime.getJeiHelpers().getFocusFactory().createFocus(RecipeIngredientRole.OUTPUT, runtime.getIngredientManager().getIngredientType(rep), rep));
         }
         return Minecraft.getInstance().screen != s;
@@ -78,7 +81,7 @@ public class JecaJEIPlugin implements IModPlugin {
 
     @Override
     public ResourceLocation getPluginUid() {
-        return new ResourceLocation(JustEnoughCalculation.MODID, "general");
+        return ResourceLocation.fromNamespaceAndPath(JustEnoughCalculation.MODID, "general");
     }
 
     @Override
@@ -100,11 +103,17 @@ public class JecaJEIPlugin implements IModPlugin {
     public void onRuntimeAvailable(IJeiRuntime jeiRuntime) {
         runtime = jeiRuntime;
         ModCompat.isJEILoaded = true;
-        if(Platform.isForge())
+        if(Platform.isMinecraftForge())
             try {
                 FORGE_FLUID_INGREDIENT_CLASS = Class.forName("net.minecraftforge.fluids.FluidStack");
             } catch (ClassNotFoundException e) {
                 throw new RuntimeException("Forge fluid ingredient class should exist!", e);
+            }
+        if (Platform.isNeoForge())
+            try {
+                NEOFORGE_FLUID_INGREDIENT_CLASS = Class.forName("net.neoforged.neoforge.fluids.FluidStack");
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException("NeoForge fluid ingredient class should exist!", e);
             }
         if (Platform.isFabric())
             try {
@@ -114,20 +123,19 @@ public class JecaJEIPlugin implements IModPlugin {
             }
     }
 
-    public static class JEITransferHandler implements IRecipeTransferHandler<JecaGui.ContainerTransfer, Recipe> {
+    public static class JEITransferHandler implements IUniversalRecipeTransferHandler<JecaGui.ContainerTransfer> {
         @Override
         public Class<JecaGui.ContainerTransfer> getContainerClass() {
             return JecaGui.ContainerTransfer.class;
         }
 
-
         @Override
-        public Class<Recipe> getRecipeClass() {
-            return Recipe.class;
+        public Optional<MenuType<JecaGui.ContainerTransfer>> getMenuType() {
+            return Optional.empty();
         }
 
         @Override
-        public @Nullable IRecipeTransferError transferRecipe(JecaGui.ContainerTransfer container, Recipe recipe, IRecipeSlotsView recipeSlots, Player player, boolean maxTransfer, boolean doTransfer) {
+        public @Nullable IRecipeTransferError transferRecipe(JecaGui.ContainerTransfer container, Object recipe, IRecipeSlotsView recipeSlots, Player player, boolean maxTransfer, boolean doTransfer) {
             if (doTransfer) {
                 Class<?> context = runtime.getRecipeManager().createRecipeCategoryLookup().get().filter(category -> category.getRecipeType().getRecipeClass() == recipe.getClass()).findFirst().getClass();
                 JecaGui gui = container.getGui();

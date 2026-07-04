@@ -16,7 +16,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @MethodsReturnNonnullByDefault
 @Environment(EnvType.CLIENT)
 public class Resource {
-    public static final ResourceLocation location = new ResourceLocation(
+    public static final ResourceLocation location = ResourceLocation.fromNamespaceAndPath(
             JustEnoughCalculation.MODID, "textures/gui/resources.png");
     // letters abbr for button & icon: N - normal, F - focused, D - disabled
     // letters abbr for fuzzy related: N - normal, F - fuzzy

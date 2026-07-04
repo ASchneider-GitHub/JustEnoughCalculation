@@ -255,8 +255,9 @@ public interface ILabel {
             else if (o instanceof EnchantmentInstance)
                 return new LItemStack(createForEnchantment((EnchantmentInstance) o));
             if (ModCompat.isJEILoaded &&
-                    (JecaJEIPlugin.FABRIC_FLUID_INGREDIENT_CLASS != null && JecaJEIPlugin.FABRIC_FLUID_INGREDIENT_CLASS.isAssignableFrom(o.getClass())) ||
-                    (JecaJEIPlugin.FORGE_FLUID_INGREDIENT_CLASS != null && JecaJEIPlugin.FORGE_FLUID_INGREDIENT_CLASS.isAssignableFrom(o.getClass())))
+                    ((JecaJEIPlugin.FABRIC_FLUID_INGREDIENT_CLASS != null && JecaJEIPlugin.FABRIC_FLUID_INGREDIENT_CLASS.isAssignableFrom(o.getClass())) ||
+                    (JecaJEIPlugin.FORGE_FLUID_INGREDIENT_CLASS != null && JecaJEIPlugin.FORGE_FLUID_INGREDIENT_CLASS.isAssignableFrom(o.getClass())) ||
+                    (JecaJEIPlugin.NEOFORGE_FLUID_INGREDIENT_CLASS != null && JecaJEIPlugin.NEOFORGE_FLUID_INGREDIENT_CLASS.isAssignableFrom(o.getClass()))))
                 return new LFluidStack(Utilities.createFluidStackFromJeiIngredient(o));
             return LPlaceholder.Converter.from(o);
         }

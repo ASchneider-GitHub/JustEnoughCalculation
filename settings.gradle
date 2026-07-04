@@ -10,7 +10,8 @@ pluginManagement {
 include("common")
 include("fabric-like")
 include("fabric")
-include("quilt")
-include("forge")
+include("neoforge")
+// include("quilt") // out of scope for the 1.21.1 migration pass
+// include("forge") // out of scope for the 1.21.1 migration pass
 
 rootProject.name = "jecalculation"

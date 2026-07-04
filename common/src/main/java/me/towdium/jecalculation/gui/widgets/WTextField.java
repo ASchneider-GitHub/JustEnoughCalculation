@@ -6,7 +6,7 @@ import net.fabricmc.api.Environment;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.network.chat.TextComponent;
+import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -28,17 +28,20 @@ public class WTextField implements IWidget {
         this.xPos = xPos;
         this.yPos = yPos;
         this.xSize = xSize;
-        textField = new EditBox(Minecraft.getInstance().font, xPos + 1, yPos + 1, xSize - 2, 18, new TextComponent("WIP"));
+        textField = new EditBox(Minecraft.getInstance().font, xPos + 1, yPos + 1, xSize - 2, 18, Component.literal("WIP"));
     }
 
     @Override
     public void onMouseFocused(JecaGui gui, int xMouse, int yMouse, int button) {
         textField.mouseClicked(xMouse, yMouse, button);
+        // AbstractWidget no longer focuses itself on click; that's now done by the parent
+        // ContainerEventHandler's mouseClicked default method, which this custom widget
+        // tree bypasses entirely. Do it ourselves based on click position instead.
+        textField.setFocused(textField.isMouseOver(xMouse, yMouse));
     }
 
     @Override
     public void onTick(JecaGui gui) {
-        textField.tick();
     }
 
     @Override
@@ -52,7 +55,7 @@ public class WTextField implements IWidget {
 
     @Override
     public boolean onDraw(JecaGui gui, int xMouse, int yMouse) {
-        textField.renderButton(gui.getMatrix(), xPos, yPos, 0);
+        textField.render(gui.getGraphics(), xMouse, yMouse, 0);
         return false;
     }
 

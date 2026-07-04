@@ -1,16 +1,27 @@
 package me.towdium.jecalculation.network.packets;
 
 import dev.architectury.networking.NetworkManager;
+import me.towdium.jecalculation.JustEnoughCalculation;
 import me.towdium.jecalculation.data.structure.Recipe;
 import me.towdium.jecalculation.utils.Utilities;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 
 import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.function.Supplier;
 
-public class PEdit {
+// C2S only: sent by Controller via NetworkManager.sendToServer
+public class PEdit implements CustomPacketPayload {
+    public static final Type<PEdit> TYPE =
+            new Type<>(ResourceLocation.fromNamespaceAndPath(JustEnoughCalculation.MODID, "edit"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, PEdit> STREAM_CODEC =
+            StreamCodec.ofMember(PEdit::write, PEdit::new);
+
     static final String KEY_OLD = "old";
     static final String KEY_NEW = "new";
     static final String KEY_INDEX = "index";
@@ -51,6 +62,11 @@ public class PEdit {
         tag.putInt(KEY_INDEX, index);
         if (recipe != null) tag.put(KEY_RECIPE, recipe.serialize());
         buf.writeNbt(tag);
+    }
+
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
     }
 
     public void handle(Supplier<NetworkManager.PacketContext> ctx) {
