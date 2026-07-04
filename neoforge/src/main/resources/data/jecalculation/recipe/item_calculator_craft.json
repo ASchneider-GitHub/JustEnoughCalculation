@@ -10,7 +10,7 @@
       "item": "minecraft:stone"
     },
     "a": {
-      "tag": "c:black_dyes"
+      "tag": "c:dyes/black"
     },
     "b": {
       "item": "minecraft:redstone"
@@ -20,6 +20,6 @@
     }
   },
   "result": {
-    "item": "jecalculation:item_calculator_craft"
+    "id": "jecalculation:item_calculator_craft"
   }
 }
