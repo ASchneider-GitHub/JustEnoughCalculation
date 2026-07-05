@@ -130,8 +130,7 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
         Objects.requireNonNull(this.minecraft);
     }
 
-    public static int getMouseX() {
-        JecaGui gui = getCurrent();
+    public static int getMouseX(JecaGui gui) {
         Minecraft mc = Objects.requireNonNull(gui.minecraft, "Internal error");
         int windowWidth = mc.getWindow().getScreenWidth();
         if (windowWidth == 0)
@@ -139,8 +138,7 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
         return (int) mc.mouseHandler.xpos() * mc.getWindow().getGuiScaledWidth() / windowWidth - gui.leftPos;
     }
 
-    public static int getMouseY() {
-        JecaGui gui = getCurrent();
+    public static int getMouseY(JecaGui gui) {
         Minecraft mc = Objects.requireNonNull(gui.minecraft, "Internal error");
         int windowHeight = mc.getWindow().getScreenHeight();
         if (windowHeight == 0)
@@ -183,11 +181,10 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
     }
 
     public static EventResult onFocused(Minecraft client, Screen screen, double mouseX, double mouseY, int button) {
-        if (!(screen instanceof JecaGui))
+        if (!(screen instanceof JecaGui gui))
             return pass();
-        JecaGui gui = getCurrent();
-        int xMouse = getMouseX();
-        int yMouse = getMouseY();
+        int xMouse = getMouseX(gui);
+        int yMouse = getMouseY(gui);
         gui.root.onMouseFocused(gui, xMouse, yMouse, button);
         ILabel e = Utilities.getLabelUnderMouse();
         if (e != ILabel.EMPTY) {
@@ -200,11 +197,10 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
 
     public static EventResult onMouseClicked(Minecraft client, Screen screen, double mouseX, double mouseY,
             int button) {
-        if (!(screen instanceof JecaGui))
+        if (!(screen instanceof JecaGui gui))
             return pass();
-        JecaGui gui = getCurrent();
-        int xMouse = getMouseX();
-        int yMouse = getMouseY();
+        int xMouse = getMouseX(gui);
+        int yMouse = getMouseY(gui);
         if (gui.root.onMouseClicked(gui, xMouse, yMouse, button))
             return interruptFalse();
         else if (gui.hand != ILabel.EMPTY) {
@@ -217,11 +213,10 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
 
     public static EventResult onMouseScroll(Minecraft client, Screen screen, double mouseX, double mouseY,
             double amountX, double amountY) {
-        if (!(screen instanceof JecaGui))
+        if (!(screen instanceof JecaGui gui))
             return pass();
-        JecaGui gui = getCurrent();
-        int xMouse = getMouseX();
-        int yMouse = getMouseY();
+        int xMouse = getMouseX(gui);
+        int yMouse = getMouseY(gui);
         if (amountY != 0)
             gui.root.onMouseScroll(gui, xMouse, yMouse, (int) amountY);
         return pass();
@@ -229,22 +224,20 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
 
     public static EventResult onMouseReleased(Minecraft minecraft, Screen screen, double mouseX, double mouseY,
             int button) {
-        if (!(screen instanceof JecaGui))
+        if (!(screen instanceof JecaGui gui))
             return pass();
-        JecaGui gui = getCurrent();
-        int xMouse = getMouseX();
-        int yMouse = getMouseY();
+        int xMouse = getMouseX(gui);
+        int yMouse = getMouseY(gui);
         gui.root.onMouseReleased(gui, xMouse, yMouse, button);
         return gui.hand == ILabel.EMPTY ? pass() : interruptFalse();
     }
 
     public static EventResult onMouseDragged(Minecraft client, Screen screen, double mouseX1, double mouseY1,
             int button, double mouseX2, double mouseY2) {
-        if (!(screen instanceof JecaGui))
+        if (!(screen instanceof JecaGui gui))
             return pass();
-        JecaGui gui = getCurrent();
-        int xMouse = getMouseX();
-        int yMouse = getMouseY();
+        int xMouse = getMouseX(gui);
+        int yMouse = getMouseY(gui);
         gui.root.onMouseDragged(gui, xMouse, yMouse, (int) mouseX2, (int) mouseY2);
         return pass();
     }
