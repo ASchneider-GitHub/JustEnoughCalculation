@@ -12,14 +12,19 @@ import net.fabricmc.api.Environment;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
 import net.minecraft.client.gui.screens.inventory.tooltip.DefaultTooltipPositioner;
+import net.minecraft.client.gui.screens.inventory.tooltip.TooltipRenderUtil;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.world.entity.player.Inventory;
+import org.joml.Matrix4f;
+import org.joml.Vector2ic;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.ArrayList;
@@ -104,9 +109,61 @@ public class GuiScreenEventHandler {
         overlayHandler.onTooltip(gui, mouseX, mouseY, tooltip);
         gui.drawHoveringText(graphics, tooltip, mouseX + gui.getGuiLeft(), mouseY + gui.getGuiTop(), minecraft.font);
         if (cachedTooltipEvent != null) {
-            graphics.renderTooltipInternal(minecraft.font, (List<ClientTooltipComponent>) cachedTooltipEvent.one, cachedTooltipEvent.two, cachedTooltipEvent.three, DefaultTooltipPositioner.INSTANCE);
+            renderCachedTooltip(graphics, minecraft.font);
             cachedTooltipEvent = null;
         }
+    }
+
+    /**
+     * Re-implements {@code GuiGraphics#renderTooltipInternal} using only public API. That method is
+     * private in vanilla, and on NeoForge the access-widened call crashes at runtime (the class is
+     * patched separately from the plain client jar our access widener targets), so we draw the
+     * deferred tooltip ourselves via the same public building blocks Mojang's method is built from.
+     */
+    private void renderCachedTooltip(GuiGraphics graphics, Font font) {
+        @SuppressWarnings("unchecked")
+        List<ClientTooltipComponent> components = (List<ClientTooltipComponent>) cachedTooltipEvent.one;
+        int mouseX = cachedTooltipEvent.two;
+        int mouseY = cachedTooltipEvent.three;
+        if (components.isEmpty())
+            return;
+
+        int width = 0;
+        int height = components.size() == 1 ? -2 : 0;
+        for (ClientTooltipComponent c : components) {
+            width = Math.max(width, c.getWidth(font));
+            height += c.getHeight();
+        }
+
+        Vector2ic pos = DefaultTooltipPositioner.INSTANCE.positionTooltip(
+                graphics.guiWidth(), graphics.guiHeight(), mouseX, mouseY, width, height);
+        int left = pos.x();
+        int top = pos.y();
+        int z = 400;
+
+        graphics.pose().pushPose();
+        TooltipRenderUtil.renderTooltipBackground(graphics, left, top, width, height, z);
+        graphics.pose().translate(0.0F, 0.0F, z);
+
+        int lineY = top;
+        for (int i = 0; i < components.size(); i++) {
+            ClientTooltipComponent c = components.get(i);
+            c.renderImage(font, left, lineY, graphics);
+            lineY += c.getHeight() + (i == 0 ? 2 : 0);
+        }
+        graphics.flush();
+
+        Matrix4f matrix = graphics.pose().last().pose();
+        MultiBufferSource.BufferSource bufferSource = graphics.bufferSource();
+        lineY = top;
+        for (int i = 0; i < components.size(); i++) {
+            ClientTooltipComponent c = components.get(i);
+            c.renderText(font, left, lineY, matrix, bufferSource);
+            lineY += c.getHeight() + (i == 0 ? 2 : 0);
+        }
+        graphics.flush();
+
+        graphics.pose().popPose();
     }
 
     public EventResult onTooltip(GuiGraphics graphics, List<? extends ClientTooltipComponent> components, int x, int y) {

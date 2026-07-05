@@ -24,6 +24,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.Objects;
 
 import static me.towdium.jecalculation.gui.JecaGui.keyOpenGuiCraft;
 import static me.towdium.jecalculation.gui.JecaGui.keyOpenGuiMath;
@@ -63,6 +64,11 @@ public class JustEnoughCalculation {
         JecaGui.registerEvents();
         ClientPlayerEvent.CLIENT_PLAYER_QUIT.register(LPlaceholder::onLogOut);
         ClientPlayerEvent.CLIENT_PLAYER_QUIT.register(Controller.Client::onLogOut);
+        // Touching the field forces Client to initialize now, which registers GUI_HANDLER's
+        // SET_SCREEN/RENDER_POST hooks up front. Without this, the nested class only loads
+        // whenever JEI/REI first happen to query GUI_HANDLER.getGuiAreas() for exclusion zones,
+        // which is too late to catch the SET_SCREEN event for whatever screen is already open.
+        Objects.requireNonNull(Client.GUI_HANDLER);
     }
 
     public static void setupCommon() {

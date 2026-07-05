@@ -10,6 +10,7 @@ import dev.architectury.event.events.client.ClientTooltipEvent;
 import dev.architectury.hooks.fluid.FluidStackHooks;
 import me.towdium.jecalculation.data.Controller;
 import me.towdium.jecalculation.data.label.ILabel;
+import me.towdium.jecalculation.events.GuiScreenOverlayHandler;
 import me.towdium.jecalculation.gui.guis.GuiCraft;
 import me.towdium.jecalculation.gui.guis.GuiMath;
 import me.towdium.jecalculation.gui.guis.IGui;
@@ -571,7 +572,11 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
             yPos -= 8;
         }
 
-        graphics.renderItem(is, xPos + itemOffset.x(), yPos + itemOffset.y());
+        if (root instanceof GuiScreenOverlayHandler) {
+            graphics.renderItem(is, xPos, yPos);
+        } else {
+            graphics.renderItem(is, xPos + itemOffset.x(), yPos + itemOffset.y());
+        }
         graphics.renderItemDecorations(font, is, xPos, yPos);
     }
 
