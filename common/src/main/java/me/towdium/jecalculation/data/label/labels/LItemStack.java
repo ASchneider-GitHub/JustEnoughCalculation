@@ -1,5 +1,6 @@
 package me.towdium.jecalculation.data.label.labels;
 
+import me.towdium.jecalculation.JustEnoughCalculation;
 import me.towdium.jecalculation.data.label.ILabel;
 import me.towdium.jecalculation.data.label.ILabel.Serializer.SerializationException;
 import me.towdium.jecalculation.gui.JecaGui;
@@ -9,13 +10,14 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.Registry;
+import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtOps;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.CustomData;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -48,8 +50,7 @@ public class LItemStack extends LStack<Item> {
     // Convert from itemStack
     public LItemStack(ItemStack is) {
         super(is.getCount(), false);
-        CustomData data = is.get(DataComponents.CUSTOM_DATA);
-        init(is.getItem(), getCap(is), data == null ? null : data.copyTag(), false, false, false);
+        init(is.getItem(), getCap(is), encodePatch(is.getComponentsPatch()), false, false, false);
     }
 
     public LItemStack(CompoundTag tag) {
@@ -96,12 +97,32 @@ public class LItemStack extends LStack<Item> {
         this.fCap = fCap;
         this.fNbt = fNbt;
         rep = Utilities.createItemStackWithCap(item, 1, this.cap);
-        if (this.nbt != null) rep.set(DataComponents.CUSTOM_DATA, CustomData.of(this.nbt));
+        DataComponentPatch patch = decodePatch(this.nbt);
+        if (!patch.isEmpty()) rep.applyComponents(patch);
     }
 
     @Nullable
     private static CompoundTag getCap(ItemStack is) {
         return Utilities.getCap(is);
+    }
+
+    // Damage is tracked separately via fMeta/rep.getDamageValue(), so it is excluded here to
+    // avoid the durability-fuzzy toggle being defeated by an always-exact patch comparison.
+    @Nullable
+    private static CompoundTag encodePatch(DataComponentPatch patch) {
+        DataComponentPatch filtered = patch.forget(type -> type == DataComponents.DAMAGE);
+        if (filtered.isEmpty()) return null;
+        return DataComponentPatch.CODEC.encodeStart(NbtOps.INSTANCE, filtered)
+                .resultOrPartial(JustEnoughCalculation.logger::warn)
+                .map(t -> (CompoundTag) t)
+                .orElse(null);
+    }
+
+    private static DataComponentPatch decodePatch(@Nullable CompoundTag tag) {
+        if (tag == null) return DataComponentPatch.EMPTY;
+        return DataComponentPatch.CODEC.parse(NbtOps.INSTANCE, tag)
+                .resultOrPartial(JustEnoughCalculation.logger::warn)
+                .orElse(DataComponentPatch.EMPTY);
     }
 
     public static boolean merge(ILabel a, ILabel b) {
