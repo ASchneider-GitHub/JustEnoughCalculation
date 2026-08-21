@@ -1,6 +1,6 @@
 [![][1]][3] [![][2]][3] [![][4]][5]
 
-# Just Enough Calculation Mod
+# Just Enough Calculation Mod -> Forked for Fabric 1.20.1 + Fabric/NeoForge 1.21.1
 
 Hey, this is a small add on to JEI (Just Enough Items), in order to help you
 calculate the amount of resources to craft
