@@ -511,6 +511,9 @@ public class JecaGui extends AbstractContainerScreen<JecaGui.JecaContainer> {
             return;
         setColor(FluidStackHooks.getColor(f) & 0x00FFFFFF);
         graphics.blit(xPos, yPos, 0, xSize, ySize, fluidTexture);
+        // GuiGraphics#setColor persists across draws; reset to white so the fluid tint
+        // doesn't bleed into subsequently rendered slot backgrounds and scrollbars.
+        setColor(0xFFFFFF);
     }
 
     public void drawRectangle(int xPos, int yPos, int xSize, int ySize, int color) {
