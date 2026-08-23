@@ -6,18 +6,23 @@ import me.towdium.jecalculation.data.label.ILabel.Serializer.SerializationExcept
 import me.towdium.jecalculation.gui.JecaGui;
 import me.towdium.jecalculation.gui.Resource;
 import me.towdium.jecalculation.utils.Utilities;
+import com.mojang.serialization.DynamicOps;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
+import net.minecraft.resources.RegistryOps;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -112,7 +117,7 @@ public class LItemStack extends LStack<Item> {
     private static CompoundTag encodePatch(DataComponentPatch patch) {
         DataComponentPatch filtered = patch.forget(type -> type == DataComponents.DAMAGE);
         if (filtered.isEmpty()) return null;
-        return DataComponentPatch.CODEC.encodeStart(NbtOps.INSTANCE, filtered)
+        return DataComponentPatch.CODEC.encodeStart(registryOps(), filtered)
                 .resultOrPartial(JustEnoughCalculation.logger::warn)
                 .map(t -> (CompoundTag) t)
                 .orElse(null);
@@ -120,9 +125,19 @@ public class LItemStack extends LStack<Item> {
 
     private static DataComponentPatch decodePatch(@Nullable CompoundTag tag) {
         if (tag == null) return DataComponentPatch.EMPTY;
-        return DataComponentPatch.CODEC.parse(NbtOps.INSTANCE, tag)
+        return DataComponentPatch.CODEC.parse(registryOps(), tag)
                 .resultOrPartial(JustEnoughCalculation.logger::warn)
                 .orElse(DataComponentPatch.EMPTY);
+    }
+
+    // DataComponentPatch can carry components (e.g. enchantments) backed by dynamic registries
+    // that plain NbtOps can't resolve, which spams "Can't access registry ..." warnings. Route
+    // through the client level's RegistryAccess when one is loaded, falling back to NbtOps
+    // otherwise (e.g. before a world is joined).
+    private static DynamicOps<Tag> registryOps() {
+        Level level = Minecraft.getInstance().level;
+        if (level == null) return NbtOps.INSTANCE;
+        return RegistryOps.create(NbtOps.INSTANCE, level.registryAccess());
     }
 
     public static boolean merge(ILabel a, ILabel b) {
